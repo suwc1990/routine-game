@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Morning Routiner 🚌</title>
+<style>
+  :root {
+    --bg: #eef2f1;
+    --bg-2: #e2e9e7;
+    --dock-bg: #dfe6e9;
+    --slot-bg: #ffffff;
+    --slot-border: #b9c6c4;
+    --card-bg: #ffffff;
+    --card-border: #a9c4c0;
+    --card-selected: #cfe3df;
+    --text: #3f4a4a;
+    --text-soft: #6b7676;
+    --accent: #7fa6a0;
+    --accent-2: #9fb8cf;
+    --bus-body: #a9c4c0;
+    --bus-window: #eaf1f0;
+    --shadow: 0 2px 8px rgba(60, 70, 70, 0.12);
+    --radius: 18px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: "Segoe UI", "Noto Sans Thai", "Tahoma", sans-serif;
+    background: linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+    color: var(--text);
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  .app {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  h1 {
+    font-size: clamp(20px, 4vw, 28px);
+    font-weight: 600;
+    margin: 0;
+    color: var(--text);
+  }
+
+  .subtitle {
+    font-size: 14px;
+    color: var(--text-soft);
+    margin-top: 4px;
+  }
+
+  .sound-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 999px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text);
+    box-shadow: var(--shadow);
+    min-height: 44px;
+  }
+
+  .sound-toggle .icon { font-size: 18px; }
+
+  /* Cargo bay: numbered slots representing the bus */
+  .cargo-bay-wrap {
+    position: relative;
+  }
+
+  .bus-label {
+    font-size: 15px;
+    color: var(--text-soft);
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+
+  .cargo-bay {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 12px;
+    background: var(--bus-body);
+    border-radius: var(--radius);
+    padding: 18px 16px;
+    box-shadow: var(--shadow);
+    position: relative;
+    transition: transform 1.4s ease-in, opacity 1.4s ease-in;
+  }
+
+  .cargo-bay.departed {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+
+  .slot {
+    background: var(--bus-window);
+    border: 2px dashed var(--slot-border);
+    border-radius: 14px;
+    min-height: 130px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 8px;
+    transition: background 0.3s ease, border-color 0.3s ease;
+  }
+
+  .slot .slot-number {
+    position: absolute;
+    top: 6px;
+    left: 8px;
+    font-size: 12px;
+    color: var(--text-soft);
+    background: rgba(255,255,255,0.7);
+    border-radius: 8px;
+    padding: 1px 6px;
+    font-weight: 600;
+  }
+
+  .slot.drag-over {
+    background: var(--card-selected);
+    border-color: var(--accent);
+  }
+
+  .slot.filled {
+    border-style: solid;
+  }
+
+  .slot.correct {
+    border-color: var(--accent);
+    background: #e4f0ec;
+  }
+
+  /* Loading dock: scrambled cards waiting to be placed */
+  .dock-label {
+    font-size: 15px;
+    color: var(--text-soft);
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+
+  .loading-dock {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 12px;
+    background: var(--dock-bg);
+    border-radius: var(--radius);
+    padding: 18px 16px;
+    min-height: 90px;
+    box-shadow: var(--shadow);
+  }
+
+  .card {
+    background: var(--card-bg);
+    border: 2px solid var(--card-border);
+    border-radius: 14px;
+    min-height: 130px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    cursor: grab;
+    box-shadow: var(--shadow);
+    transition: transform 0.25s ease, opacity 0.25s ease, background 0.25s ease, border-color 0.25s ease;
+    touch-action: none;
+  }
+
+  .card:active { cursor: grabbing; }
+
+  .card .icon {
+    font-size: 40px;
+    line-height: 1;
+  }
+
+  .card .label {
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--text);
+  }
+
+  .card.selected {
+    background: var(--card-selected);
+    border-color: var(--accent);
+    transform: scale(1.04);
+  }
+
+  .card.dragging {
+    opacity: 0.4;
+  }
+
+  .card.drag-ghost {
+    position: fixed;
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.95;
+    transform: scale(1.06);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+  }
+
+  .card.placed-empty {
+    display: none;
+  }
+
+  footer {
+    display: flex;
+    justify-content: center;
+    margin-top: 8px;
+  }
+
+  .ride-again-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 14px 32px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    min-height: 48px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s ease;
+  }
+
+  .ride-again-btn.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .celebration {
+    text-align: center;
+    font-size: 18px;
+    color: var(--accent);
+    font-weight: 600;
+    min-height: 28px;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+  }
+
+  .celebration.visible {
+    opacity: 1;
+  }
+
+  .bus-icon-row {
+    text-align: center;
+    font-size: 34px;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+    min-height: 44px;
+  }
+  .bus-icon-row.visible {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cargo-bay, .card, .ride-again-btn, .celebration, .bus-icon-row {
+      transition: none !important;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>🚌 Morning Routiner</h1>
+      <div class="subtitle">จัดกล่องขึ้นรถบัสให้ถูกลำดับ</div>
+    </div>
+    <button class="sound-toggle" id="soundToggle" aria-pressed="false">
+      <span class="icon" id="soundIcon">🔇</span>
+      <span id="soundText">เสียงปิด</span>
+    </button>
+  </header>
+
+  <div class="cargo-bay-wrap">
+    <div class="bus-label">🚏 คาร์โก้บนรถบัส (เรียงลำดับที่นี่)</div>
+    <div class="cargo-bay" id="cargoBay"></div>
+  </div>
+
+  <div class="bus-icon-row" id="busIconRow">🚌💨</div>
+  <div class="celebration" id="celebration">เก่งมาก! ถึงเวลาไปโรงเรียนแล้ว 🎉</div>
+
+  <div>
+    <div class="dock-label">📦 ท่าขนของ (แตะหรือลากไปวางในรถบัส)</div>
+    <div class="loading-dock" id="loadingDock"></div>
+  </div>
+
+  <footer>
+    <button class="ride-again-btn" id="rideAgainBtn">นั่งอีกครั้ง 🔁</button>
+  </footer>
+</div>
+
+<script>
+  // ---------------------------------------------------------------
+  // CUSTOMIZE THE ROUTINE HERE. Order in this array = correct order.
+  // Each step: { id, icon (emoji), label (short text) }
+  // ---------------------------------------------------------------
+  const ROUTINE_STEPS = [
+    { id: "wake",   icon: "⏰", label: "ตื่นนอน" },
+    { id: "brush",  icon: "🪥", label: "แปรงฟัน" },
+    { id: "bath",   icon: "🛁", label: "อาบน้ำ" },
+    { id: "dress",  icon: "👕", label: "แต่งตัว" },
+    { id: "eat",    icon: "🍳", label: "กินข้าวเช้า" },
+    { id: "shoes",  icon: "👟", label: "ใส่รองเท้า" },
+  ];
+  // ---------------------------------------------------------------
+
+  const cargoBay = document.getElementById("cargoBay");
+  const loadingDock = document.getElementById("loadingDock");
+  const rideAgainBtn = document.getElementById("rideAgainBtn");
+  const celebration = document.getElementById("celebration");
+  const busIconRow = document.getElementById("busIconRow");
+  const soundToggle = document.getElementById("soundToggle");
+  const soundIcon = document.getElementById("soundIcon");
+  const soundText = document.getElementById("soundText");
+
+  let soundOn = false;
+
+  // slots[i] = step id currently placed in cargo bay slot i, or null
+  let slots = new Array(ROUTINE_STEPS.length).fill(null);
+  // dockOrder = array of step ids currently sitting in the loading dock (shuffled)
+  let dockOrder = [];
+
+  let selectedCard = null; // { location: 'dock'|'slot', index, id }
+  let completed = false;
+
+  function shuffle(arr) {
+    const copy = arr.slice();
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }
+
+  function stepById(id) {
+    return ROUTINE_STEPS.find(s => s.id === id);
+  }
+
+  function playTone(freq, duration) {
+    if (!soundOn) return;
+    try {
+      const ctx = playTone._ctx || (playTone._ctx = new (window.AudioContext || window.webkitAudioContext)());
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + duration + 0.05);
+    } catch (e) { /* audio not available, ignore */ }
+  }
+
+  function initGame() {
+    completed = false;
+    slots = new Array(ROUTINE_STEPS.length).fill(null);
+    dockOrder = shuffle(ROUTINE_STEPS.map(s => s.id));
+    // Ensure the shuffle isn't accidentally already-correct (rare but nice for engagement)
+    if (dockOrder.every((id, i) => id === ROUTINE_STEPS[i].id) && ROUTINE_STEPS.length > 1) {
+      [dockOrder[0], dockOrder[1]] = [dockOrder[1], dockOrder[0]];
+    }
+    selectedCard = null;
+    cargoBay.classList.remove("departed");
+    celebration.classList.remove("visible");
+    busIconRow.classList.remove("visible");
+    rideAgainBtn.classList.remove("visible");
+    render();
+  }
+
+  function makeCardEl(id, location, index) {
+    const step = stepById(id);
+    const card = document.createElement("div");
+    card.className = "card";
+    card.setAttribute("role", "button");
+    card.setAttribute("tabindex", "0");
+    card.setAttribute("aria-label", step.label);
+    card.dataset.id = id;
+    card.dataset.location = location;
+    card.dataset.index = index;
+
+    const icon = document.createElement("div");
+    icon.className = "icon";
+    icon.textContent = step.icon;
+
+    const label = document.createElement("div");
+    label.className = "label";
+    label.textContent = step.label;
+
+    card.appendChild(icon);
+    card.appendChild(label);
+
+    if (selectedCard && selectedCard.location === location && selectedCard.index === index) {
+      card.classList.add("selected");
+    }
+
+    attachCardEvents(card);
+    return card;
+  }
+
+  function render() {
+    // Render cargo bay slots
+    cargoBay.innerHTML = "";
+    slots.forEach((id, i) => {
+      const slot = document.createElement("div");
+      slot.className = "slot";
+      slot.dataset.index = i;
+      const num = document.createElement("div");
+      num.className = "slot-number";
+      num.textContent = i + 1;
+      slot.appendChild(num);
+
+      if (id) {
+        slot.classList.add("filled");
+        if (ROUTINE_STEPS[i].id === id) {
+          slot.classList.add("correct");
+        }
+        slot.appendChild(makeCardEl(id, "slot", i));
+      }
+
+      attachSlotEvents(slot);
+      cargoBay.appendChild(slot);
+    });
+
+    // Render loading dock
+    loadingDock.innerHTML = "";
+    dockOrder.forEach((id, i) => {
+      if (id === null) return;
+      loadingDock.appendChild(makeCardEl(id, "dock", i));
+    });
+
+    checkCompletion();
+  }
+
+  function checkCompletion() {
+    const allFilled = slots.every(id => id !== null);
+    if (!allFilled) return;
+    const isCorrect = slots.every((id, i) => ROUTINE_STEPS[i].id === id);
+    if (isCorrect && !completed) {
+      completed = true;
+      celebrate();
+    }
+  }
+
+  function celebrate() {
+    playTone(523.25, 0.25); // C5
+    setTimeout(() => playTone(659.25, 0.25), 180); // E5
+    setTimeout(() => playTone(783.99, 0.35), 360); // G5
+
+    setTimeout(() => {
+      cargoBay.classList.add("departed");
+      busIconRow.classList.add("visible");
+      celebration.classList.add("visible");
+    }, 400);
+
+    setTimeout(() => {
+      rideAgainBtn.classList.add("visible");
+    }, 1600);
+  }
+
+  // ---- Selection swap (tap-to-swap) ----
+
+  function handleCardTap(location, index) {
+    if (completed) return;
+    const id = location === "dock" ? dockOrder[index] : slots[index];
+    if (id === null || id === undefined) return;
+
+    if (!selectedCard) {
+      selectedCard = { location, index };
+      render();
+      return;
+    }
+
+    if (selectedCard.location === location && selectedCard.index === index) {
+      // tapped same card again -> deselect
+      selectedCard = null;
+      render();
+      return;
+    }
+
+    swapPositions(selectedCard, { location, index });
+    selectedCard = null;
+    render();
+  }
+
+  function swapPositions(a, b) {
+    const getVal = (ref) => ref.location === "dock" ? dockOrder[ref.index] : slots[ref.index];
+    const setVal = (ref, val) => {
+      if (ref.location === "dock") dockOrder[ref.index] = val;
+      else slots[ref.index] = val;
+    };
+    const aVal = getVal(a);
+    const bVal = getVal(b);
+    setVal(a, bVal);
+    setVal(b, aVal);
+    playTone(392, 0.12);
+  }
+
+  // ---- Drag and drop (mouse + touch unified via pointer events) ----
+
+  let dragState = null; // { id, from: {location, index}, ghostEl, startX, startY }
+
+  function attachCardEvents(card) {
+    card.addEventListener("pointerdown", onPointerDown);
+    card.addEventListener("click", onCardClick);
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        const location = card.dataset.location;
+        const index = parseInt(card.dataset.index, 10);
+        handleCardTap(location, index);
+      }
+    });
+  }
+
+  function attachSlotEvents(slot) {
+    // Allow tapping an empty slot while a card is selected -> move it there
+    slot.addEventListener("click", (e) => {
+      if (dragState) return; // ignore click right after drag
+      if (!selectedCard) return;
+      const index = parseInt(slot.dataset.index, 10);
+      if (slots[index] === null) {
+        // move selected card into empty slot
+        const getVal = (ref) => ref.location === "dock" ? dockOrder[ref.index] : slots[ref.index];
+        const val = getVal(selectedCard);
+        if (selectedCard.location === "dock") dockOrder[selectedCard.index] = null;
+        else slots[selectedCard.index] = null;
+        slots[index] = val;
+        selectedCard = null;
+        playTone(392, 0.12);
+        render();
+      }
+    });
+  }
+
+  let clickSuppressed = false;
+
+  function onCardClick(e) {
+    if (clickSuppressed) {
+      clickSuppressed = false;
+      return;
+    }
+    const card = e.currentTarget;
+    const location = card.dataset.location;
+    const index = parseInt(card.dataset.index, 10);
+    handleCardTap(location, index);
+  }
+
+  const DRAG_THRESHOLD = 8;
+
+  function onPointerDown(e) {
+    if (completed) return;
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    dragState = {
+      pointerId: e.pointerId,
+      sourceCard: card,
+      location: card.dataset.location,
+      index: parseInt(card.dataset.index, 10),
+      startX: e.clientX,
+      startY: e.clientY,
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+      width: rect.width,
+      height: rect.height,
+      moved: false,
+      ghostEl: null,
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
+  }
+
+  function createGhost(state, x, y) {
+    const step = stepById(state.location === "dock" ? dockOrder[state.index] : slots[state.index]);
+    const ghost = document.createElement("div");
+    ghost.className = "card drag-ghost";
+    ghost.style.width = state.width + "px";
+    ghost.style.height = state.height + "px";
+    const icon = document.createElement("div");
+    icon.className = "icon";
+    icon.textContent = step.icon;
+    const label = document.createElement("div");
+    label.className = "label";
+    label.textContent = step.label;
+    ghost.appendChild(icon);
+    ghost.appendChild(label);
+    document.body.appendChild(ghost);
+    positionGhost(ghost, state, x, y);
+    return ghost;
+  }
+
+  function positionGhost(ghost, state, x, y) {
+    ghost.style.left = (x - state.offsetX) + "px";
+    ghost.style.top = (y - state.offsetY) + "px";
+  }
+
+  function onPointerMove(e) {
+    if (!dragState) return;
+    const dx = e.clientX - dragState.startX;
+    const dy = e.clientY - dragState.startY;
+
+    if (!dragState.moved) {
+      if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+      dragState.moved = true;
+      dragState.sourceCard.classList.add("dragging");
+      dragState.ghostEl = createGhost(dragState, e.clientX, e.clientY);
+      clickSuppressed = true;
+    }
+
+    positionGhost(dragState.ghostEl, dragState, e.clientX, e.clientY);
+
+    // Highlight drop target
+    clearDragOver();
+    const target = findDropTarget(e.clientX, e.clientY);
+    if (target && target.classList.contains("slot")) {
+      target.classList.add("drag-over");
+    } else if (target && target.classList.contains("card") && target !== dragState.sourceCard) {
+      target.closest(".slot, .loading-dock")?.classList.add("drag-over");
+    }
+  }
+
+  function clearDragOver() {
+    document.querySelectorAll(".drag-over").forEach(el => el.classList.remove("drag-over"));
+  }
+
+  function findDropTarget(x, y) {
+    const el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    return el.closest(".slot") || el.closest(".loading-dock") || el.closest(".card");
+  }
+
+  function onPointerUp(e) {
+    window.removeEventListener("pointermove", onPointerMove);
+    window.removeEventListener("pointerup", onPointerUp);
+    window.removeEventListener("pointercancel", onPointerUp);
+
+    if (!dragState) return;
+    const state = dragState;
+    dragState = null;
+
+    if (state.ghostEl) state.ghostEl.remove();
+    state.sourceCard.classList.remove("dragging");
+    clearDragOver();
+
+    if (!state.moved) {
+      // treat as a click / tap-to-select, handled by click event
+      return;
+    }
+
+    const dropEl = document.elementFromPoint(e.clientX, e.clientY);
+    if (!dropEl) { render(); return; }
+
+    const slotEl = dropEl.closest(".slot");
+    const dockEl = dropEl.closest(".loading-dock");
+    const cardEl = dropEl.closest(".card");
+
+    if (slotEl) {
+      const targetIndex = parseInt(slotEl.dataset.index, 10);
+      handleDrop(state, { location: "slot", index: targetIndex });
+    } else if (cardEl && cardEl !== state.sourceCard) {
+      const targetLocation = cardEl.dataset.location;
+      const targetIndex = parseInt(cardEl.dataset.index, 10);
+      handleDrop(state, { location: targetLocation, index: targetIndex });
+    } else if (dockEl) {
+      // dropped on empty dock area -> place at first empty dock spot, or swap into last
+      const emptyIdx = dockOrder.findIndex(v => v === null);
+      if (emptyIdx !== -1) {
+        handleDrop(state, { location: "dock", index: emptyIdx });
+      } else {
+        render();
+      }
+    } else {
+      render();
+    }
+
+    selectedCard = null;
+  }
+
+  function handleDrop(state, target) {
+    const from = { location: state.location, index: state.index };
+    if (from.location === target.location && from.index === target.index) {
+      render();
+      return;
+    }
+
+    const getVal = (ref) => ref.location === "dock" ? dockOrder[ref.index] : slots[ref.index];
+    const setVal = (ref, val) => {
+      if (ref.location === "dock") dockOrder[ref.index] = val;
+      else slots[ref.index] = val;
+    };
+
+    const targetVal = getVal(target);
+    const fromVal = getVal(from);
+
+    if (targetVal === null || targetVal === undefined) {
+      // moving into an empty slot
+      setVal(target, fromVal);
+      setVal(from, null);
+    } else {
+      // swap
+      setVal(target, fromVal);
+      setVal(from, targetVal);
+    }
+
+    playTone(392, 0.12);
+    render();
+  }
+
+  // ---- Sound toggle ----
+  soundToggle.addEventListener("click", () => {
+    soundOn = !soundOn;
+    soundToggle.setAttribute("aria-pressed", String(soundOn));
+    soundIcon.textContent = soundOn ? "🔊" : "🔇";
+    soundText.textContent = soundOn ? "เสียงเปิด" : "เสียงปิด";
+    if (soundOn) playTone(440, 0.15);
+  });
+
+  rideAgainBtn.addEventListener("click", () => {
+    initGame();
+  });
+
+  initGame();
+</script>
+</body>
+</html>
