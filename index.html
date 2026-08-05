@@ -22,6 +22,7 @@
     --bus-window: #eaf1f0;
     --wheel: #5b6b6a;
     --wheel-dark: #3f4a4a;
+    --check: #4f9d82;
     --shadow: 0 2px 8px rgba(60, 70, 70, 0.12);
     --radius: 18px;
   }
@@ -41,6 +42,7 @@
   }
 
   .app {
+    position: relative;
     max-width: 900px;
     margin: 0 auto;
     padding: 20px 16px 40px;
@@ -48,6 +50,60 @@
     display: flex;
     flex-direction: column;
     gap: 24px;
+  }
+
+  /* Gentle drifting clouds so the screen isn't static, kept behind all content */
+  .sky-decor {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 150px;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .cloud {
+    position: absolute;
+    background: #ffffff;
+    border-radius: 40px;
+    box-shadow: 0 3px 10px rgba(110, 135, 135, 0.22);
+  }
+
+  .cloud::before, .cloud::after {
+    content: "";
+    position: absolute;
+    background: inherit;
+    border-radius: 50%;
+  }
+
+  .cloud-1 {
+    width: 74px;
+    height: 24px;
+    top: 14px;
+    left: -110px;
+    opacity: 0.9;
+    animation: drift 48s linear infinite;
+  }
+  .cloud-1::before { width: 36px; height: 36px; top: -16px; left: 8px; }
+  .cloud-1::after { width: 26px; height: 26px; top: -10px; left: 38px; }
+
+  .cloud-2 {
+    width: 52px;
+    height: 18px;
+    top: 58px;
+    left: -80px;
+    opacity: 0.75;
+    animation: drift 65s linear infinite;
+    animation-delay: -20s;
+  }
+  .cloud-2::before { width: 26px; height: 26px; top: -11px; left: 6px; }
+  .cloud-2::after { width: 18px; height: 18px; top: -7px; left: 26px; }
+
+  @keyframes drift {
+    from { transform: translateX(0); }
+    to { transform: translateX(calc(100vw + 200px)); }
   }
 
   header {
@@ -226,23 +282,49 @@
 
   .slot .check-badge {
     position: absolute;
-    top: -8px;
-    right: -8px;
+    top: -10px;
+    right: -10px;
     z-index: 2;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
-    background: var(--accent);
-    color: #fff;
-    font-size: 14px;
-    font-weight: 700;
+    background: var(--check);
+    border: 2px solid #fff;
     display: flex;
     align-items: center;
     justify-content: center;
     box-shadow: var(--shadow);
+  }
+
+  .slot .check-badge svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .slot .check-badge.pop-in {
+    animation: checkPop 0.5s ease-out;
+  }
+
+  .slot .check-badge .ring {
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    border: 2px solid var(--check);
     opacity: 0;
-    transform: scale(0.7);
-    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
+  .slot .check-badge.pop-in .ring {
+    animation: checkRing 0.6s ease-out;
+  }
+
+  @keyframes checkPop {
+    0% { opacity: 0; transform: scale(0.4); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes checkRing {
+    0% { opacity: 0.6; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.9); }
   }
 
   .slot.drag-over {
@@ -255,13 +337,13 @@
   }
 
   .slot.correct {
-    border-color: var(--accent);
-    background: #e4f0ec;
+    border-color: var(--check);
+    background: #ddf0e6;
   }
 
-  .slot.correct .check-badge {
-    opacity: 1;
-    transform: scale(1);
+  .card.card-correct {
+    border-color: var(--check);
+    box-shadow: var(--shadow), 0 0 0 3px rgba(79, 157, 130, 0.18);
   }
 
   /* Loading dock: scrambled cards waiting to be placed */
@@ -408,11 +490,18 @@
     .bus-shape, .card, .ride-again-btn, .celebration, .bus-icon-row, .check-badge {
       transition: none !important;
     }
+    .cloud-1, .cloud-2, .check-badge.pop-in, .check-badge.pop-in .ring {
+      animation: none !important;
+    }
   }
 </style>
 </head>
 <body>
 <div class="app">
+  <div class="sky-decor" aria-hidden="true">
+    <div class="cloud cloud-1"></div>
+    <div class="cloud cloud-2"></div>
+  </div>
   <header>
     <div>
       <h1>🚌 Morning Routiner</h1>
@@ -484,6 +573,15 @@
 
   let selectedCard = null; // { location: 'dock'|'slot', index, id }
   let completed = false;
+  let prevCorrect = new Array(ROUTINE_STEPS.length).fill(false);
+
+  const CELEBRATION_MESSAGES = [
+    "เก่งมาก! ถึงเวลาไปโรงเรียนแล้ว 🎉",
+    "ทำได้ดีมาก! รถบัสพร้อมออกเดินทางแล้ว 🚌",
+    "เยี่ยมมาก! วันนี้พร้อมลุยแล้ว ✨",
+    "สุดยอด! ถึงเวลาไปผจญภัยแล้ว 🌟",
+  ];
+  let lastMessageIndex = -1;
 
   function shuffle(arr) {
     const copy = arr.slice();
@@ -514,6 +612,14 @@
       osc.start();
       osc.stop(ctx.currentTime + duration + 0.05);
     } catch (e) { /* audio not available, ignore */ }
+    hapticPulse(12);
+  }
+
+  function hapticPulse(pattern) {
+    if (!soundOn) return;
+    if (navigator.vibrate) {
+      try { navigator.vibrate(pattern); } catch (e) { /* vibration not available, ignore */ }
+    }
   }
 
   function initGame() {
@@ -525,6 +631,7 @@
       [dockOrder[0], dockOrder[1]] = [dockOrder[1], dockOrder[0]];
     }
     selectedCard = null;
+    prevCorrect = new Array(ROUTINE_STEPS.length).fill(false);
     busShape.classList.remove("departed");
     celebration.classList.remove("visible");
     busIconRow.classList.remove("visible");
@@ -532,7 +639,7 @@
     render();
   }
 
-  function makeCardEl(id, location, index) {
+  function makeCardEl(id, location, index, isCorrect) {
     const step = stepById(id);
     const card = document.createElement("div");
     card.className = "card";
@@ -542,6 +649,7 @@
     card.dataset.id = id;
     card.dataset.location = location;
     card.dataset.index = index;
+    if (isCorrect) card.classList.add("card-correct");
 
     const icon = document.createElement("div");
     icon.className = "icon";
@@ -565,6 +673,8 @@
   function render() {
     // Render cargo bay slots
     cargoBay.innerHTML = "";
+    const nowCorrect = slots.map((id, i) => id !== null && ROUTINE_STEPS[i].id === id);
+
     slots.forEach((id, i) => {
       const slot = document.createElement("div");
       slot.className = "slot";
@@ -576,25 +686,29 @@
 
       if (id) {
         slot.classList.add("filled");
-        if (ROUTINE_STEPS[i].id === id) {
+        if (nowCorrect[i]) {
           slot.classList.add("correct");
           const badge = document.createElement("div");
-          badge.className = "check-badge";
-          badge.textContent = "✓";
+          badge.className = "check-badge" + (nowCorrect[i] && !prevCorrect[i] ? " pop-in" : "");
+          badge.innerHTML =
+            '<span class="ring"></span>' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 9 17 20 6"></polyline></svg>';
           slot.appendChild(badge);
         }
-        slot.appendChild(makeCardEl(id, "slot", i));
+        slot.appendChild(makeCardEl(id, "slot", i, nowCorrect[i]));
       }
 
       attachSlotEvents(slot);
       cargoBay.appendChild(slot);
     });
 
+    prevCorrect = nowCorrect;
+
     // Render loading dock
     loadingDock.innerHTML = "";
     dockOrder.forEach((id, i) => {
       if (id === null) return;
-      loadingDock.appendChild(makeCardEl(id, "dock", i));
+      loadingDock.appendChild(makeCardEl(id, "dock", i, false));
     });
 
     checkCompletion();
@@ -611,9 +725,17 @@
   }
 
   function celebrate() {
+    let nextIndex = Math.floor(Math.random() * CELEBRATION_MESSAGES.length);
+    if (CELEBRATION_MESSAGES.length > 1 && nextIndex === lastMessageIndex) {
+      nextIndex = (nextIndex + 1) % CELEBRATION_MESSAGES.length;
+    }
+    lastMessageIndex = nextIndex;
+    celebration.textContent = CELEBRATION_MESSAGES[nextIndex];
+
     playTone(523.25, 0.25); // C5
     setTimeout(() => playTone(659.25, 0.25), 180); // E5
     setTimeout(() => playTone(783.99, 0.35), 360); // G5
+    hapticPulse([30, 60, 30]);
 
     setTimeout(() => {
       busShape.classList.add("departed");
