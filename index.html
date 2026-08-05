@@ -20,6 +20,8 @@
     --accent-2: #9fb8cf;
     --bus-body: #a9c4c0;
     --bus-window: #eaf1f0;
+    --wheel: #5b6b6a;
+    --wheel-dark: #3f4a4a;
     --shadow: 0 2px 8px rgba(60, 70, 70, 0.12);
     --radius: 18px;
   }
@@ -97,28 +99,110 @@
     font-weight: 600;
   }
 
-  .cargo-bay {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-    gap: 12px;
-    background: var(--bus-body);
-    border-radius: var(--radius);
-    padding: 18px 16px;
-    box-shadow: var(--shadow);
+  /* Bus silhouette: cab + windshield + cargo windows + wheels */
+  .bus-shape {
     position: relative;
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    background: var(--bus-body);
+    border-radius: 28px 28px 14px 14px;
+    padding: 16px 18px 32px 16px;
+    box-shadow: var(--shadow);
     transition: transform 1.4s ease-in, opacity 1.4s ease-in;
   }
 
-  .cargo-bay.departed {
+  .bus-shape.departed {
     transform: translateX(120%);
     opacity: 0;
   }
 
+  .bus-shape::before {
+    /* roof highlight */
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 22px;
+    right: 22px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 8px 8px 0 0;
+  }
+
+  .bus-shape::after {
+    /* bumper shadow along the bottom edge */
+    content: "";
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 0;
+    height: 6px;
+    background: rgba(63, 74, 74, 0.22);
+    border-radius: 0 0 10px 10px;
+  }
+
+  .bus-cab {
+    flex: 0 0 62px;
+    background: var(--accent);
+    border-radius: 22px 8px 8px 22px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 4px;
+    position: relative;
+  }
+
+  .bus-cab .windshield {
+    width: 28px;
+    height: 32px;
+    background: var(--bus-window);
+    border: 2px solid rgba(255, 255, 255, 0.55);
+    border-radius: 10px 4px 4px 10px;
+  }
+
+  .bus-cab .headlight {
+    position: absolute;
+    bottom: 10px;
+    left: 9px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #fbe7b0;
+  }
+
+  .wheel {
+    position: absolute;
+    bottom: -14px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--wheel);
+    border: 4px solid var(--wheel-dark);
+    box-shadow: var(--shadow);
+  }
+
+  .wheel-left { left: 66px; }
+  .wheel-right { right: 54px; }
+
+  .cargo-bay {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 10px;
+    align-content: start;
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 16px;
+    padding: 8px;
+  }
+
   .slot {
     background: var(--bus-window);
-    border: 2px dashed var(--slot-border);
+    border: 3px solid var(--slot-border);
+    box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.5);
     border-radius: 14px;
-    min-height: 130px;
+    min-height: 122px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -140,6 +224,27 @@
     font-weight: 600;
   }
 
+  .slot .check-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    z-index: 2;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow);
+    opacity: 0;
+    transform: scale(0.7);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
   .slot.drag-over {
     background: var(--card-selected);
     border-color: var(--accent);
@@ -152,6 +257,11 @@
   .slot.correct {
     border-color: var(--accent);
     background: #e4f0ec;
+  }
+
+  .slot.correct .check-badge {
+    opacity: 1;
+    transform: scale(1);
   }
 
   /* Loading dock: scrambled cards waiting to be placed */
@@ -187,8 +297,22 @@
     padding: 10px;
     cursor: grab;
     box-shadow: var(--shadow);
+    position: relative;
     transition: transform 0.25s ease, opacity 0.25s ease, background 0.25s ease, border-color 0.25s ease;
     touch-action: none;
+  }
+
+  .card::before {
+    /* packing-tape accent to read as a cargo box */
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 34%;
+    height: 6px;
+    background: rgba(63, 74, 74, 0.08);
+    border-radius: 0 0 6px 6px;
   }
 
   .card:active { cursor: grabbing; }
@@ -281,7 +405,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .cargo-bay, .card, .ride-again-btn, .celebration, .bus-icon-row {
+    .bus-shape, .card, .ride-again-btn, .celebration, .bus-icon-row, .check-badge {
       transition: none !important;
     }
   }
@@ -302,7 +426,15 @@
 
   <div class="cargo-bay-wrap">
     <div class="bus-label">🚏 คาร์โก้บนรถบัส (เรียงลำดับที่นี่)</div>
-    <div class="cargo-bay" id="cargoBay"></div>
+    <div class="bus-shape" id="busShape">
+      <div class="bus-cab">
+        <div class="windshield"></div>
+        <div class="headlight"></div>
+      </div>
+      <div class="cargo-bay" id="cargoBay"></div>
+      <div class="wheel wheel-left"></div>
+      <div class="wheel wheel-right"></div>
+    </div>
   </div>
 
   <div class="bus-icon-row" id="busIconRow">🚌💨</div>
@@ -334,6 +466,7 @@
   // ---------------------------------------------------------------
 
   const cargoBay = document.getElementById("cargoBay");
+  const busShape = document.getElementById("busShape");
   const loadingDock = document.getElementById("loadingDock");
   const rideAgainBtn = document.getElementById("rideAgainBtn");
   const celebration = document.getElementById("celebration");
@@ -392,7 +525,7 @@
       [dockOrder[0], dockOrder[1]] = [dockOrder[1], dockOrder[0]];
     }
     selectedCard = null;
-    cargoBay.classList.remove("departed");
+    busShape.classList.remove("departed");
     celebration.classList.remove("visible");
     busIconRow.classList.remove("visible");
     rideAgainBtn.classList.remove("visible");
@@ -445,6 +578,10 @@
         slot.classList.add("filled");
         if (ROUTINE_STEPS[i].id === id) {
           slot.classList.add("correct");
+          const badge = document.createElement("div");
+          badge.className = "check-badge";
+          badge.textContent = "✓";
+          slot.appendChild(badge);
         }
         slot.appendChild(makeCardEl(id, "slot", i));
       }
@@ -479,7 +616,7 @@
     setTimeout(() => playTone(783.99, 0.35), 360); // G5
 
     setTimeout(() => {
-      cargoBay.classList.add("departed");
+      busShape.classList.add("departed");
       busIconRow.classList.add("visible");
       celebration.classList.add("visible");
     }, 400);
